@@ -1,7 +1,7 @@
 ## table_cooking
 
 **Author:** qin2dim
-**Version:** 0.0.1
+**Version:** 0.0.2
 **Type:** tool
 
 ### Demo
