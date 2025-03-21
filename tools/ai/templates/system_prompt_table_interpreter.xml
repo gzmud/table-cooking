@@ -30,7 +30,6 @@
             - scipy.stats
             - pingouin
             - matplotlib
-            - seaborn
         </statistics>
     </available_libraries>
 

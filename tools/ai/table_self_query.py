@@ -1,19 +1,22 @@
 import ast
 import csv
 import json
+import re
 import traceback
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Tuple
-from typing import List, Optional, Dict, Hashable, Literal
+from typing import List, Optional, Dict, Hashable
 from typing import Union
 
 import chardet
+import matplotlib
 import numpy as np
 import pandas as pd
 import pingouin
 import scipy.stats
+import statsmodels
 import statsmodels.api as sm
 from dify_plugin.core.runtime import Session
 from dify_plugin.entities.model.llm import LLMModelConfig
@@ -22,32 +25,6 @@ from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
 AI_DIR = Path(__file__).parent
-
-
-def get_prompt_template(
-        site: Literal["table_filter", "naming_master", "fdq", "classify", "table_interpreter", "answer"]
-):
-    path_system_prompt_table_filter = "templates/system_prompt_table_filter.xml"
-    path_system_prompt_naming_master = "templates/system_prompt_naming_master.xml"
-    path_system_prompt_fdq = "templates/system_prompt_fdq.xml"
-    path_system_prompt_question_classifier = "templates/system_prompt_question_classifier.xml"
-    path_system_prompt_table_interpreter = "templates/system_prompt_table_interpreter.xml"
-    path_system_prompt_answer = "templates/system_prompt_answer.xml"
-
-    site2path = {
-        "table_filter": path_system_prompt_table_filter,
-        "naming_master": path_system_prompt_naming_master,
-        "fdq": path_system_prompt_fdq,
-        "classify": path_system_prompt_question_classifier,
-        "table_interpreter": path_system_prompt_table_interpreter,
-        "answer": path_system_prompt_answer,
-    }
-
-    if site_path := site2path.get(site):
-        system_prompt = AI_DIR.joinpath(site_path).read_text(encoding="utf8")
-        return system_prompt
-
-    return ""
 
 
 PREVIEW_CODE_WRAPPER = """
@@ -62,6 +39,86 @@ PREVIEW_CODE_WRAPPER = """
 </output>
 </segment>
 """
+
+INSTRUCTIONS_CLASSIFIER = """
+<task>
+You are a question classifier, determining whether a user query is a <basic data query> task. Output "YES" if it is.
+</task>
+<COT>
+Judgment: 1. Does the query explicitly request a query? 2. Does the query request a listing of data?
+For example, <not belonging> case: The table is an exam grade sheet, and the query requires calculating the median score of students in a certain region (i.e., data not explicitly given in the grade sheet).
+For example, <belonging> case: The table is an exam grade sheet, and the query is to query the scores of a subject or the scores of students in a certain region.
+</COT>
+<schemas>
+Below are the headers, sample data, shape, and description information of the knowledge base tables.
+{schemas}
+</schemas>
+<limitations>
+You can only output "YES" or "NO" and cannot output any other information.
+</limitations>
+"""
+
+PROMPT_GEN_RECOMMEND_NAME = """
+<natural_query>
+{natural_query}
+</natural_query>
+<code>
+```python
+{code}
+```
+</code>
+"""
+
+INSTRUCTIONS_POST_FIXER = """
+You are a Python code debugger specializing in Pandas DataFrames. You will be provided with a user's natural language query, the schema of a Pandas DataFrame (including column names, data types, shape, and sample data), a Python code snippet that resulted in an error when operating on the DataFrame, and the error message. Your task is to generate a corrected Python code snippet that addresses the error and accurately reflects the user's intent.
+
+**Constraints:**
+
+*   **Output ONLY the complete, corrected Python code snippet.** Do not include any explanations, comments, or surrounding text.
+*   **Focus on fixing the error identified in the error message.** Make only the necessary changes to resolve the error and ensure the code is syntactically and semantically correct.
+*   **Preserve the original intent of the code as much as possible.** Avoid introducing new functionality or significantly altering the code's logic unless absolutely necessary to resolve the error.
+*   **Adhere to the provided DataFrame schema.** Ensure that all column names, data types, and DataFrame operations used in the corrected code are consistent with the provided schema (columns, dtypes_dict, shape, and sample_data).
+
+**Input:**
+
+*   `Natural Language Query`: The user's original query expressed in natural language.
+*   `DataFrame Schema`: The schema of the Pandas DataFrame, including:
+    *   `columns`: A list of column names.
+    *   `dtypes_dict`: A dictionary mapping column names to their data types.
+    *   `shape`: The dimensions (rows, columns) of the DataFrame.
+    *   `sample_data`: A small sample of data from the DataFrame.
+*   `Erroneous Python Code`: The Python code snippet that resulted in an error when operating on the DataFrame.
+*   `Error Message`: The error message generated when executing the erroneous Python code.
+
+**Output:**
+
+*   The complete, corrected Python code snippet.
+"""
+
+PROMPT_POST_FIXER = """
+Regenerate the correct and runnable Python code based on the following information:
+
+**Natural Language Query:**
+{natural_query}
+
+**DataFrame Schema:**
+{schemas}
+
+**Erroneous Python Code:**
+{error_python_code}
+
+**Error Message:**
+{error_message}
+"""
+
+
+class AgentStrategyType(str, Enum):
+    TABLE_FILTER = "table_filter"
+    TABLE_INTERPRETER = "table_interpreter"
+    NAMING_MASTER = "naming_master"
+    FDQ = "fdq"
+    CLASSIFY = "classify"
+    ANSWER = "answer"
 
 
 class QueryStatus(str, Enum):
@@ -82,7 +139,9 @@ class QueryResult(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now, description="Query timestamp")
     query: str = Field(description="Original query")
     query_type: Optional[str] = Field(default="", description="Query Type")
-    query_code: Optional[str] = Field(default="", description="The generated code for manipulating the table")
+    query_code: Optional[str] = Field(
+        default="", description="The generated code for manipulating the table"
+    )
     recommend_filename: Optional[str] = Field(default="", description="Recommended file name")
     data: List[Dict[str, Any]] = Field(default_factory=list, description="Query result data")
     metadata: MetaData = Field(description="Result metadata")
@@ -133,13 +192,13 @@ class QueryOutputParser:
 
     @staticmethod
     def parse(
-            df_result: Optional[pd.DataFrame],
-            query: str,
-            *,
-            query_type: Optional[str] = "",
-            query_code: Optional[str] = "",
-            recommend_filename: Optional[str] = "",
-            error: Optional[str] = "",
+        df_result: Optional[pd.DataFrame],
+        query: str,
+        *,
+        query_type: Optional[str] = "",
+        query_code: Optional[str] = "",
+        recommend_filename: Optional[str] = "",
+        error: Optional[str] = "",
     ) -> QueryResult:
         """
         Convert DataFrame results to a standardized Pydantic model
@@ -198,7 +257,27 @@ class QueryOutputParser:
             return error_result
 
 
-AVAILABLE_MODELS = Literal["qwen", "gemini", "coder"]
+def get_prompt_template(site: AgentStrategyType):
+    path_system_prompt_table_filter = "templates/system_prompt_table_filter.xml"
+    path_system_prompt_naming_master = "templates/system_prompt_naming_master.xml"
+    path_system_prompt_fdq = "templates/system_prompt_fdq.xml"
+    path_system_prompt_question_classifier = "templates/system_prompt_question_classifier.xml"
+    path_system_prompt_table_interpreter = "templates/system_prompt_table_interpreter.xml"
+    path_system_prompt_answer = "templates/system_prompt_answer.xml"
+
+    site2path = {
+        "table_filter": path_system_prompt_table_filter,
+        "naming_master": path_system_prompt_naming_master,
+        "fdq": path_system_prompt_fdq,
+        "classify": path_system_prompt_question_classifier,
+        "table_interpreter": path_system_prompt_table_interpreter,
+        "answer": path_system_prompt_answer,
+    }
+
+    if site_path := site2path.get(site):
+        return AI_DIR.joinpath(site_path).read_text(encoding="utf8")
+
+    return ""
 
 
 class TableLoader:
@@ -250,7 +329,7 @@ class TableLoader:
         start_idx, end_idx = self._find_valid_table_range(raw_df)
 
         # Extract valid data range
-        valid_df = raw_df.iloc[start_idx: end_idx + 1].reset_index(drop=True)
+        valid_df = raw_df.iloc[start_idx : end_idx + 1].reset_index(drop=True)
         return valid_df
 
     def format_stock_codes(self, keywords: List[str] = None) -> None:
@@ -439,12 +518,87 @@ class TableQueryEngine:
         self.schema_info = {}
         self.sample_data = []
 
+    def load_table(self, file_path: Union[str, Path]) -> None:
+        tl = TableLoader()
+        tl.load_table(file_path)
+
+        self.df = tl.df
+        self.schema_info = tl.schema_info
+        self.sample_data = tl.sample_data
+
+    def query(
+        self, natural_query: str, enable_classifier: bool = True, retry_times: int = 3
+    ) -> QueryResult:
+        if self.df is None:
+            return QueryOutputParser.parse(None, natural_query, error="Tabular data not loaded")
+
+        try:
+
+            # ====================
+            # Task Classifier
+            # ====================
+            runtime_agent_strategy = AgentStrategyType.TABLE_FILTER
+            if enable_classifier:
+                is_search = self._classify(natural_query)
+                runtime_agent_strategy = (
+                    AgentStrategyType.TABLE_FILTER
+                    if "YES" in is_search
+                    else AgentStrategyType.TABLE_INTERPRETER
+                )
+
+            # ====================
+            # Task Execution
+            # ====================
+            # Generate code
+            query_code = self._gen_query_code(
+                natural_query=natural_query,
+                agent_strategy=(
+                    AgentStrategyType.TABLE_FILTER
+                    if runtime_agent_strategy == "DataQuery"
+                    else AgentStrategyType.TABLE_INTERPRETER
+                ),
+            )
+
+            df_result = None
+            for _ in range(retry_times):
+                df_result = self._execute_query_code(query_code)
+
+                # What is returned is not an error message
+                if not isinstance(df_result, str):
+                    break
+
+                query_code = self._code_post_fixer(
+                    natural_query=natural_query,
+                    error_python_code=query_code,
+                    error_message=df_result,
+                )
+
+            # ========================================
+            # Generate recommended file names
+            # ========================================
+            recommend_filename = self._gen_recommend_name(natural_query, query_code)
+
+            # ========================================
+            # Parses and returns the result
+            # ========================================
+            result = QueryOutputParser.parse(
+                df_result,
+                natural_query,
+                query_type=runtime_agent_strategy.value,
+                query_code=query_code,
+                recommend_filename=recommend_filename,
+            )
+            return result
+
+        except Exception as err:
+            return QueryOutputParser.parse(pd.DataFrame(), natural_query, error=str(err))
+
     def _invoke_dify_llm(
-            self,
-            user_content: str,
-            system_prompt: str = None,
-            temperature: float = 0,
-            max_tokens: int = 4096,
+        self,
+        user_content: str,
+        system_prompt: str = None,
+        temperature: float = 0,
+        max_tokens: int = 4096,
     ) -> str:
         model_config = self.dify_model_config.model_dump().copy()
         model_config["completion_params"] = {"max_tokens": max_tokens, "temperature": temperature}
@@ -459,58 +613,20 @@ class TableQueryEngine:
 
         return llm_result.message.content
 
-    def load_table(self, file_path: Union[str, Path]) -> None:
-        tl = TableLoader()
-        tl.load_table(file_path)
-
-        self.df = tl.df
-        self.schema_info = tl.schema_info
-        self.sample_data = tl.sample_data
-
-    def second_level_classify(self, natural_query: str):
+    def _classify(self, natural_query: str) -> str:
         schemas = {
             "columns": self.schema_info["columns"],
             "dtypes_dict": self.schema_info["dtypes"],
             "shape": self.schema_info["shape"],
             "sample_data": json.dumps(self.sample_data[0], indent=2, ensure_ascii=False),
         }
-        system_prompt = f"""
-<task>
-You are a question classifier, determining whether a user query is a <basic data query> task. Output "YES" if it is.
-</task>
-<COT>
-Judgment: 1. Does the query explicitly request a query? 2. Does the query request a listing of data?
-For example, <not belonging> case: The table is an exam grade sheet, and the query requires calculating the median score of students in a certain region (i.e., data not explicitly given in the grade sheet).
-For example, <belonging> case: The table is an exam grade sheet, and the query is to query the scores of a subject or the scores of students in a certain region.
-</COT>
-<schemas>
-Below are the headers, sample data, shape, and description information of the knowledge base tables.
-{schemas}
-</schemas>
-<limitations>
-You can only output "YES" or "NO" and cannot output any other information.
-</limitations>
-        """.strip()
-        runtime_params = {
-            "system_prompt": system_prompt,
-            "user_content": natural_query,
-            "temperature": 0,
-            "max_tokens": 512,
-        }
-        return self._invoke_dify_llm(**runtime_params)
+        system_prompt = INSTRUCTIONS_CLASSIFIER.format(schemas=schemas).strip()
+        return self._invoke_dify_llm(
+            system_prompt=system_prompt, user_content=natural_query, temperature=0, max_tokens=200
+        )
 
-    def _generate_query_code(
-            self, natural_query: str, agent: Literal["table_filter", "table_interpreter"]
-    ) -> str:
-        """Generate query code using LLM
-
-        Args:
-            natural_query:
-
-        Returns:
-            str:
-        """
-        system_prompt = get_prompt_template(agent).format(
+    def _gen_query_code(self, natural_query: str, agent_strategy: AgentStrategyType) -> str:
+        system_prompt = get_prompt_template(agent_strategy).format(
             columns_list=self.schema_info["columns"],
             dtypes_dict=self.schema_info["dtypes"],
             shape_tuple=self.schema_info["shape"],
@@ -518,42 +634,53 @@ You can only output "YES" or "NO" and cannot output any other information.
         )
         user_content = f"<query>{natural_query}<query>"
 
-        runtime_params = {
-            "system_prompt": system_prompt,
-            "user_content": user_content,
-            "temperature": 0,
-            "max_tokens": 4096,
-        }
-
-        code = self._invoke_dify_llm(**runtime_params)
+        code = self._invoke_dify_llm(
+            system_prompt=system_prompt, user_content=user_content, temperature=0, max_tokens=4096
+        )
         if "```python" in code:
             code = code.split("```python")[1].split("```")[0].strip()
 
         return code
 
-    def _generate_filename(self, natural_query: str, code: str) -> str:
-        system_prompt = get_prompt_template("naming_master")
-
-        user_content = f"""
-<natural_query>
-{natural_query}
-</natural_query>
-<code>
-```python
-{code}
-```
-</code>
-        """.strip()
-        runtime_params = {
-            "system_prompt": system_prompt,
-            "user_content": user_content,
-            "temperature": 0.3,
-            "max_tokens": 512,
+    def _code_post_fixer(
+        self, natural_query: str, error_python_code: str, error_message: str
+    ) -> str | None:
+        schemas = {
+            "columns": self.schema_info["columns"],
+            "dtypes_dict": self.schema_info["dtypes"],
+            "shape": self.schema_info["shape"],
+            "sample_data": json.dumps(self.sample_data[0], indent=2, ensure_ascii=False),
         }
+        system_prompt = INSTRUCTIONS_POST_FIXER.strip()
+        question = PROMPT_POST_FIXER.format(
+            natural_query=natural_query,
+            schemas=schemas,
+            error_python_code=error_python_code,
+            error_message=error_message,
+        )
 
-        return self._invoke_dify_llm(**runtime_params)
+        debugger_code = self._invoke_dify_llm(
+            system_prompt=system_prompt, user_content=question, temperature=0, max_tokens=4096
+        )
 
-    def _safe_execute_code(self, code: str) -> Any:
+        if "```python" in debugger_code:
+            pattern = r"```python\s*(.*?)\s*```"
+            match = re.search(pattern, debugger_code, re.DOTALL)
+            if match:
+                debugger_code = match.group(1).strip()
+
+        return debugger_code
+
+    def _gen_recommend_name(self, natural_query: str, code: str) -> str:
+        system_prompt = get_prompt_template(AgentStrategyType.NAMING_MASTER)
+        user_content = PROMPT_GEN_RECOMMEND_NAME.format(
+            natural_query=natural_query, code=code
+        ).strip()
+        return self._invoke_dify_llm(
+            system_prompt=system_prompt, user_content=user_content, temperature=0.3, max_tokens=200
+        )
+
+    def _execute_query_code(self, code: str) -> Any:
         """
         Safely execute dynamically generated code
 
@@ -574,8 +701,12 @@ You can only output "YES" or "NO" and cannot output any other information.
                 "df": self.df,
                 # Statistical related
                 "sm": sm,
+                "statsmodels": statsmodels,
+                "scipy": scipy,
                 "stats": scipy.stats,
                 "pingouin": pingouin,
+                # DrawIO
+                "matplotlib": matplotlib,
             }
 
             # Execute function definitions using exec
@@ -596,67 +727,6 @@ You can only output "YES" or "NO" and cannot output any other information.
                 "traceback": traceback.format_exc(),
             }
 
-            logger.error("Code execution failed", extra={"error_context": error_context})
+            logger.error(f"Code execution failed - error_context={error_context}")
 
             return str(traceback.format_exc())
-
-    def query(
-            self, natural_query: str, enable_classifier: bool = True, retry_times: int = 3
-    ) -> QueryResult:
-        if self.df is None:
-            return QueryOutputParser.parse(None, natural_query, error="Tabular data not loaded")
-
-        try:
-
-            # ====================
-            # Task Classifier
-            # ====================
-            # Post-Judgement - Problem Scenario Classification, and then use different branches to generate code
-            if enable_classifier:
-                # query_type = self.get_query_classification(natural_query)
-                is_search = self.second_level_classify(natural_query)
-                query_type = "DataQuery" if "YES" in is_search else "DataAnalysis"
-            # Ignore judgment - To the query is the `Basic Data Query` class,
-            # guide subsequent workflows to print the results instead of re-investment into memory
-            else:
-                query_type = "DataQuery"
-
-            # ====================
-            # Task Execution
-            # ====================
-            query_code = ""
-            df_result = None
-            for _ in range(retry_times):
-                # Generate code
-                query_code = self._generate_query_code(
-                    natural_query=natural_query,
-                    agent="table_filter" if query_type == "DataQuery" else "table_interpreter",
-                )
-
-                # logger.debug(f"[{query_type}]Generate code: \n{query_code}")
-                df_result = self._safe_execute_code(query_code)
-                # What is returned is not an error message
-                if not isinstance(df_result, str):
-                    break
-
-                # TODO: debugger strategy
-
-            # ========================================
-            # Generate recommended file names
-            # ========================================
-            recommend_filename = self._generate_filename(natural_query, query_code)
-
-            # ========================================
-            # Parses and returns the result
-            # ========================================
-            result = QueryOutputParser.parse(
-                df_result,
-                natural_query,
-                query_type=query_type,
-                query_code=query_code,
-                recommend_filename=recommend_filename,
-            )
-            return result
-
-        except Exception as err:
-            return QueryOutputParser.parse(pd.DataFrame(), natural_query, error=str(err))
