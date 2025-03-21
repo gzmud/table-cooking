@@ -1,0 +1,376 @@
+app:
+  description: ''
+  icon: person_with_headscarf
+  icon_background: '#FFEAD5'
+  mode: advanced-chat
+  name: cf1
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: package
+  value:
+    plugin_unique_identifier: qin2dim/table_cooking:0.0.1@28abbef6f72dbf5d1b42acd1590fbf6c84161b1060e8bba5207e07920d8f23fb
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/openai:0.0.12@604c1a752a92633a354dc7eea717248314f23bab66a9ce48d33b1c57a0f9463e
+kind: app
+version: 0.1.5
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions: []
+      allowed_file_types:
+      - document
+      allowed_file_upload_methods:
+      - remote_url
+      - local_file
+      enabled: true
+      fileUploadConfig:
+        audio_file_size_limit: 5000
+        batch_count_limit: 51
+        file_size_limit: 1000
+        image_file_size_limit: 80
+        video_file_size_limit: 10000
+        workflow_file_upload_limit: 1000
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 1
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: tool
+      id: 1742214363114-source-1742538158268-target
+      source: '1742214363114'
+      sourceHandle: source
+      target: '1742538158268'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: tool
+        targetType: code
+      id: 1742538158268-source-1742528532152-target
+      source: '1742538158268'
+      sourceHandle: source
+      target: '1742528532152'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: llm
+      id: 1742528532152-source-1742538230449-target
+      source: '1742528532152'
+      sourceHandle: source
+      target: '1742538230449'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: answer
+      id: 1742538230449-source-1742441805046-target
+      source: '1742538230449'
+      sourceHandle: source
+      target: '1742441805046'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: ''
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - allowed_file_extensions: []
+          allowed_file_types:
+          - document
+          allowed_file_upload_methods:
+          - local_file
+          - remote_url
+          label: table
+          max_length: 48
+          options: []
+          required: true
+          type: file
+          variable: table
+      height: 90
+      id: '1742214363114'
+      position:
+        x: 30
+        y: 271.5
+      positionAbsolute:
+        x: 30
+        y: 271.5
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        answer: '{{#1742528532152.human_ready#}}
+
+
+          {{#1742538230449.text#}}
+
+
+          '
+        desc: ''
+        selected: false
+        title: 直接回复
+        type: answer
+        variables: []
+      height: 124
+      id: '1742441805046'
+      position:
+        x: 1242
+        y: 271.5
+      positionAbsolute:
+        x: 1242
+        y: 271.5
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        code: "def main(outputs: list[dict]) -> dict:\n    return {\"human_ready\"\
+          : outputs[0][\"human_ready\"], \"llm_ready\": outputs[0][\"llm_ready\"]}\n"
+        code_language: python3
+        desc: ''
+        outputs:
+          human_ready:
+            children: null
+            type: string
+          llm_ready:
+            children: null
+            type: string
+        selected: false
+        title: 代码执行
+        type: code
+        variables:
+        - value_selector:
+          - '1742538158268'
+          - json
+          variable: outputs
+      height: 54
+      id: '1742528532152'
+      position:
+        x: 638
+        y: 271.5
+      positionAbsolute:
+        x: 638
+        y: 271.5
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        is_team_authorization: true
+        output_schema: null
+        paramSchemas:
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: The information you want to get from the table data
+            ja_JP: 表データから取得したい情報
+            pt_BR: A informação que você deseja obter dos dados da tabela
+            zh_Hans: 想从表格数据中获取的信息
+          label:
+            en_US: Natural language query
+            ja_JP: 自然言語クエリ
+            pt_BR: Consulta em linguagem natural
+            zh_Hans: 查询语句
+          llm_description: Cooking on tabular data, smooth Q&amp;A
+          max: null
+          min: null
+          name: query
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: string
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: Document form for Q&A (.csv/.xlsx/.xls)
+            ja_JP: Q&A用のドキュメントフォーム（.csv/.xlsx/.xls）
+            pt_BR: Formulário de documento para Q&A (.csv/.xlsx/.xls)
+            zh_Hans: 提供数据支持的的表格文件（.csv/.xlsx/.xls）
+          label:
+            en_US: Table file
+            ja_JP: 表ファイル
+            pt_BR: Arquivo de tabela
+            zh_Hans: 表格文件
+          llm_description: Document form for Q&amp;A
+          max: null
+          min: null
+          name: table
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: file
+        - auto_generate: null
+          default: null
+          form: form
+          human_description:
+            en_US: Model
+            ja_JP: 使用するモデル
+            pt_BR: Modelo a ser usado
+            zh_Hans: 使用的模型 test
+          label:
+            en_US: Model
+            ja_JP: モデル
+            pt_BR: Modelo
+            zh_Hans: 使用的模型
+          llm_description: which Model to invoke
+          max: null
+          min: null
+          name: chef
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: llm
+          template: null
+          type: model-selector
+        params:
+          chef: ''
+          query: ''
+          table: ''
+        provider_id: qin2dim/table_cooking/table_cooking
+        provider_name: qin2dim/table_cooking/table_cooking
+        provider_type: builtin
+        selected: false
+        title: 表格数据分析
+        tool_configurations:
+          chef:
+            completion_params: {}
+            mode: chat
+            model: gpt-4o-2024-11-20
+            model_type: llm
+            provider: langgenius/openai/openai
+            type: model-selector
+        tool_label: 表格数据分析
+        tool_name: table_cooking
+        tool_parameters:
+          query:
+            type: mixed
+            value: '{{#sys.query#}}'
+          table:
+            type: variable
+            value:
+            - '1742214363114'
+            - table
+        type: tool
+      height: 90
+      id: '1742538158268'
+      position:
+        x: 334
+        y: 271.5
+      positionAbsolute:
+        x: 334
+        y: 271.5
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: ''
+        memory:
+          query_prompt_template: '{{#sys.query#}}
+
+
+            **Table knowledge:**
+
+            <context>
+
+            {{#1742528532152.llm_ready#}}
+
+            </context>'
+          role_prefix:
+            assistant: ''
+            user: ''
+          window:
+            enabled: false
+            size: 50
+        model:
+          completion_params:
+            frequency_penalty: 0.5
+            max_tokens: 16384
+            presence_penalty: 0.5
+            temperature: 0.2
+            top_p: 0.75
+          mode: chat
+          name: gpt-4o-mini
+          provider: langgenius/openai/openai
+        prompt_template:
+        - id: 92297033-8720-4add-b12d-d62f34c48c2b
+          role: system
+          text: ''
+        selected: false
+        title: LLM
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 90
+      id: '1742538230449'
+      position:
+        x: 942
+        y: 271.5
+      positionAbsolute:
+        x: 942
+        y: 271.5
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    viewport:
+      x: -138.77718935116923
+      y: 102.83636902594213
+      zoom: 0.8040888484979246
