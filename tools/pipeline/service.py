@@ -30,6 +30,7 @@ WRAPPER_HUMAN_READY = """
 """
 
 WRAPPER_LLM_READY = """
+```xml
 <segment table="{table_name}">
 <question>{question}</question>
 <code>
@@ -39,6 +40,7 @@ WRAPPER_LLM_READY = """
 {result_markdown}
 </output>
 </segment>
+```
 """
 
 encoding = tiktoken.get_encoding("o200k_base")
