@@ -176,3 +176,7 @@ cython_debug/
 
 # Windows
 Thumbs.db
+
+difypkg/
+tmp/
+dify-plugin-windows-amd64.exe
