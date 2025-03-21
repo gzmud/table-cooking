@@ -1,17 +1,17 @@
 ## table_cooking
 
-**Author:** qin2dim
-**Version:** 0.0.2
-**Type:** tool
+```yaml
+Author: QIN2DIM
+Version: 0.0.2
+Type: tool
+```
 
-### Demo
+### Demo Chatflow
 
-https://github.com/user-attachments/assets/dd18ac4b-9beb-4313-b88a-02493ce58324
+- [dsl_demo.yml](assets/demo/table-cooking.yml)
+  
+https://github.com/user-attachments/assets/60d46a37-48b0-471b-a60c-146391ca87be
 
-
-### Workflow
-
-[dsl_demo.yml](assets/demo/table-cooking.yml)
 
 ![image-20250321154044819](assets/image-20250321154044819.png)
 
