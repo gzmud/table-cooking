@@ -25,8 +25,6 @@ from dify_plugin.entities.model.message import SystemPromptMessage, UserPromptMe
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
-from tools.pipeline.service import ArtifactPayload
-
 AI_DIR = Path(__file__).parent
 
 
@@ -491,17 +489,11 @@ class TableLoader:
             {k: _convert_for_json(v) for k, v in record.items()} for record in samples
         ]
 
-    def load_table(self, artifact: ArtifactPayload) -> None:
+    def load_table(self, file_stream: io.BytesIO, extension: str) -> None:
         """Load the table file, process the head and tail comments, and automatically detect the head rows of the table"""
-        _extension = artifact.table.extension
-        if not isinstance(_extension, str):
-            raise ValueError("Unsupported file formats. Please use table file")
-
-        file_stream = artifact.get_table_stream()
-
-        if _extension.lower() == ".csv":
+        if extension.lower() == ".csv":
             valid_df = self._process_csv(file_stream)
-        elif _extension.lower() in [".xlsx", ".xls"]:
+        elif extension.lower() in [".xlsx", ".xls"]:
             valid_df = pd.read_excel(file_stream, header=None)
         else:
             raise ValueError("Unsupported file formats. Please use table file")
@@ -529,9 +521,9 @@ class TableQueryEngine:
         self.schema_info = {}
         self.sample_data = []
 
-    def load_table(self, artifact: ArtifactPayload) -> None:
+    def load_table(self, file_stream: io.BytesIO, extension: str) -> None:
         tl = TableLoader()
-        tl.load_table(artifact)
+        tl.load_table(file_stream, extension)
 
         self.df = tl.df
         self.schema_info = tl.schema_info

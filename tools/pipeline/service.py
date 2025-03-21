@@ -173,8 +173,7 @@ def transform_friendly_prompt_template(
 @logger.catch
 def table_self_query(artifact: ArtifactPayload, session: Session) -> CookingResult:
     engine = TableQueryEngine(session=session, dify_model_config=artifact.dify_model_config)
-
-    engine.load_table(artifact=artifact)
+    engine.load_table(file_stream=artifact.get_table_stream(), extension=artifact.table.extension)
 
     result: QueryResult = engine.query(artifact.natural_query)
     if result.error:
