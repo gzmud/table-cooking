@@ -21,9 +21,7 @@ class TableCookingTool(Tool):
         artifact = ArtifactPayload.from_dify(tool_parameters)
 
         # Invoke tool-strategy
-        try:
-            cooking_result = table_self_query(artifact, self.session)
-            cooking_result_json = cooking_result.model_dump(mode="json")
-            yield self.create_json_message(cooking_result_json)
-        finally:
-            artifact.release_cache()
+        cooking_result = table_self_query(artifact, self.session)
+        cooking_result_json = cooking_result.model_dump(mode="json")
+
+        yield self.create_json_message(cooking_result_json)

@@ -1,5 +1,6 @@
 import ast
 import csv
+import io
 import json
 import re
 import traceback
@@ -23,6 +24,8 @@ from dify_plugin.entities.model.llm import LLMModelConfig
 from dify_plugin.entities.model.message import SystemPromptMessage, UserPromptMessage
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
+
+from tools.pipeline.service import ArtifactPayload
 
 AI_DIR = Path(__file__).parent
 
@@ -310,25 +313,29 @@ class TableLoader:
 
         return start_idx, end_idx
 
-    def _process_excel(self, file_path: Path) -> pd.DataFrame:
-        """Process Excel files"""
-        # First read all data without specifying the header
-        return pd.read_excel(file_path, header=None)
-
-    def _process_csv(self, file_path: Path) -> pd.DataFrame:
+    def _process_csv(self, file_stream: Union[Path, io.BytesIO]) -> pd.DataFrame:
         """Processing CSV files"""
-        encoding = self._detect_file_encoding(file_path)
-
-        # First read all rows using csv.reader
-        with open(file_path, "r", encoding=encoding) as f:
-            csv_reader = csv.reader(f)
+        # 处理不同类型的输入
+        if isinstance(file_stream, Path):
+            # 如果是文件路径，使用原来的方法
+            encoding = self._detect_file_encoding(file_stream)
+            with open(file_stream, "r", encoding=encoding) as f:
+                csv_reader = csv.reader(f)
+                rows = list(csv_reader)
+        elif isinstance(file_stream, io.BytesIO):
+            # 如果是BytesIO对象，直接读取
+            content = file_stream.getvalue().decode("utf-8")
+            file_stream.seek(0)  # 重置文件指针位置
+            csv_reader = csv.reader(io.StringIO(content))
             rows = list(csv_reader)
+        else:
+            raise ValueError("不支持的文件输入类型")
 
-        # Convert to DataFrame for processing
+        # 转换为DataFrame进行处理
         raw_df = pd.DataFrame(rows)
         start_idx, end_idx = self._find_valid_table_range(raw_df)
 
-        # Extract valid data range
+        # 提取有效数据范围
         valid_df = raw_df.iloc[start_idx : end_idx + 1].reset_index(drop=True)
         return valid_df
 
@@ -484,14 +491,18 @@ class TableLoader:
             {k: _convert_for_json(v) for k, v in record.items()} for record in samples
         ]
 
-    def load_table(self, file_path: Union[str, Path]) -> None:
+    def load_table(self, artifact: ArtifactPayload) -> None:
         """Load the table file, process the head and tail comments, and automatically detect the head rows of the table"""
-        file_path = Path(file_path)
+        _extension = artifact.table.extension
+        if not isinstance(_extension, str):
+            raise ValueError("Unsupported file formats. Please use table file")
 
-        if file_path.suffix.lower() == ".csv":
-            valid_df = self._process_csv(file_path)
-        elif file_path.suffix.lower() in [".xlsx", ".xls"]:
-            valid_df = pd.read_excel(file_path, header=None)
+        file_stream = artifact.get_table_stream()
+
+        if _extension.lower() == ".csv":
+            valid_df = self._process_csv(file_stream)
+        elif _extension.lower() in [".xlsx", ".xls"]:
+            valid_df = pd.read_excel(file_stream, header=None)
         else:
             raise ValueError("Unsupported file formats. Please use table file")
 
@@ -518,9 +529,9 @@ class TableQueryEngine:
         self.schema_info = {}
         self.sample_data = []
 
-    def load_table(self, file_path: Union[str, Path]) -> None:
+    def load_table(self, artifact: ArtifactPayload) -> None:
         tl = TableLoader()
-        tl.load_table(file_path)
+        tl.load_table(artifact)
 
         self.df = tl.df
         self.schema_info = tl.schema_info
