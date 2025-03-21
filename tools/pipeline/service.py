@@ -17,7 +17,19 @@ from pydantic import BaseModel, UUID4
 from tools.ai.table_self_query import TableQueryEngine, QueryResult
 from tools.pipeline.constant import ARTIFACT_FILES_DIR
 
-PREVIEW_CODE_WRAPPER = """
+WRAPPER_HUMAN_READY = """
+### Query code
+
+```python
+{py_code}
+```
+
+### Preview of execution results
+
+{result_markdown}
+"""
+
+WRAPPER_LLM_READY = """
 <segment table="{table_name}">
 <question>{question}</question>
 <code>
@@ -121,10 +133,10 @@ class ArtifactPayload(BaseModel):
             "o1-pro-2025-03-19",
         ]
         if (
-            isinstance(chef, dict)
-            and chef.get("model_type", "") == "llm"
-            and chef.get("provider", "") == "langgenius/openai/openai"
-            and chef.get("mode", "") == "chat"
+                isinstance(chef, dict)
+                and chef.get("model_type", "") == "llm"
+                and chef.get("provider", "") == "langgenius/openai/openai"
+                and chef.get("mode", "") == "chat"
         ):
             if use_model := chef.get("model"):
                 if use_model in not_available_models:
@@ -199,11 +211,17 @@ class CookingResult(BaseModel):
 
 
 def transform_friendly_prompt_template(
-    question: str, table_name: str, query_code: str, recommend_filename: str, result_data: Any
+        question: str, table_name: str, query_code: str, recommend_filename: str, result_data: Any
 ):
     preview_df = pd.DataFrame.from_records(result_data)
     result_markdown = preview_df.to_markdown(index=False)
-    wrapper_ = PREVIEW_CODE_WRAPPER.format(
+
+    human_ready = WRAPPER_HUMAN_READY.format(
+        py_code=query_code,
+        result_markdown=result_markdown,
+    )
+
+    llm_ready = WRAPPER_LLM_READY.format(
         question=question,
         table_name=table_name,
         query_code=query_code,
@@ -211,15 +229,15 @@ def transform_friendly_prompt_template(
         result_markdown=result_markdown,
     ).strip()
 
-    return wrapper_, result_markdown
+    return llm_ready, human_ready
 
 
 def transform_to_dify_file(
-    recommend_filename: str,
-    artifact_extension: str,
-    result_data: Any,
-    *,
-    storage_dir: Optional[Path],
+        recommend_filename: str,
+        artifact_extension: str,
+        result_data: Any,
+        *,
+        storage_dir: Optional[Path],
 ):
     flag = Path(recommend_filename).stem
     flag2 = str(uuid4())

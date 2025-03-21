@@ -15,7 +15,6 @@ import pandas as pd
 import pingouin
 import scipy.stats
 import statsmodels.api as sm
-from bs4 import BeautifulSoup
 from dify_plugin.core.runtime import Session
 from dify_plugin.entities.model.llm import LLMModelConfig
 from dify_plugin.entities.model.message import SystemPromptMessage, UserPromptMessage
@@ -26,7 +25,7 @@ AI_DIR = Path(__file__).parent
 
 
 def get_prompt_template(
-    site: Literal["table_filter", "naming_master", "fdq", "classify", "table_interpreter", "answer"]
+        site: Literal["table_filter", "naming_master", "fdq", "classify", "table_interpreter", "answer"]
 ):
     path_system_prompt_table_filter = "templates/system_prompt_table_filter.xml"
     path_system_prompt_naming_master = "templates/system_prompt_naming_master.xml"
@@ -48,7 +47,7 @@ def get_prompt_template(
         system_prompt = AI_DIR.joinpath(site_path).read_text(encoding="utf8")
         return system_prompt
 
-    return "You are a helpful AI assistant."
+    return ""
 
 
 PREVIEW_CODE_WRAPPER = """
@@ -66,34 +65,28 @@ PREVIEW_CODE_WRAPPER = """
 
 
 class QueryStatus(str, Enum):
-    """查询状态枚举"""
-
     SUCCESS = "success"
     ERROR = "error"
 
 
 class MetaData(BaseModel):
-    """查询结果元数据模型"""
-
-    row_count: int = Field(description="结果行数")
-    columns: List[str] = Field(description="列名列表")
-    dtypes: Dict[Hashable, str] = Field(description="列数据类型")
+    row_count: int = Field(description="Number of results rows")
+    columns: List[str] = Field(description="List of column names")
+    dtypes: Dict[Hashable, str] = Field(description="Column data type")
 
     class Config:
         json_encoders = {np.dtype: str}
 
 
 class QueryResult(BaseModel):
-    """查询结果模型"""
-
-    timestamp: datetime = Field(default_factory=datetime.now, description="查询时间戳")
-    query: str = Field(description="原始查询语句")
-    query_type: Optional[str] = Field(default="", description="查询类型")
-    query_code: Optional[str] = Field(default="", description="生成的用于操作表格的代码")
-    recommend_filename: Optional[str] = Field(default="", description="建议使用的文件名")
-    data: List[Dict[str, Any]] = Field(default_factory=list, description="查询结果数据")
-    metadata: MetaData = Field(description="结果元数据")
-    error: Optional[str] = Field(default=None, description="错误信息")
+    timestamp: datetime = Field(default_factory=datetime.now, description="Query timestamp")
+    query: str = Field(description="Original query")
+    query_type: Optional[str] = Field(default="", description="Query Type")
+    query_code: Optional[str] = Field(default="", description="The generated code for manipulating the table")
+    recommend_filename: Optional[str] = Field(default="", description="Recommended file name")
+    data: List[Dict[str, Any]] = Field(default_factory=list, description="Query result data")
+    metadata: MetaData = Field(description="Result metadata")
+    error: Optional[str] = Field(default=None, description="Error message")
 
     class Config:
         json_encoders = {
@@ -106,13 +99,13 @@ class QueryResult(BaseModel):
 
     @field_validator("data", mode="before")
     def convert_nan_to_none(cls, v):
-        """将NaN值转换为None"""
+        """Convert NaN value to None"""
         if isinstance(v, list):
             return [{k: None if pd.isna(v) else v for k, v in item.items()} for item in v]
         return v
 
     def get_recommend_filename(self, suffix: Optional[str] = None):
-        """根据查询结果生成文件名建议"""
+        """Generate file name suggestions based on query results"""
         name = self.recommend_filename or "output.xlsx"
         if isinstance(suffix, str) and suffix.startswith("."):
             name = f"{Path(name).stem}{suffix}"
@@ -137,30 +130,30 @@ class QueryResult(BaseModel):
 
 
 class QueryOutputParser:
-    """查询结果解析器"""
 
     @staticmethod
     def parse(
-        df_result: Optional[pd.DataFrame],
-        query: str,
-        *,
-        query_type: Optional[str] = "",
-        query_code: Optional[str] = "",
-        recommend_filename: Optional[str] = "",
-        error: Optional[str] = "",
+            df_result: Optional[pd.DataFrame],
+            query: str,
+            *,
+            query_type: Optional[str] = "",
+            query_code: Optional[str] = "",
+            recommend_filename: Optional[str] = "",
+            error: Optional[str] = "",
     ) -> QueryResult:
-        """将DataFrame结果转换为标准化的Pydantic模型
+        """
+        Convert DataFrame results to a standardized Pydantic model
 
         Args:
             query_code:
-            df_result: 查询返回的DataFrame
-            query: 原始查询语句
-            error: 错误信息（如果有）
-            recommend_filename: 推荐使用的文件名
+            df_result: Query the returned DataFrame
+            query: Original query statement
+            error: Error message (if any)
+            recommend_filename: Recommended file names
             query_type:
 
         Returns:
-            QueryResult: 标准化的查询结果模型
+            QueryResult: Standardized query result model
         """
         try:
             if isinstance(df_result, (pd.DataFrame, pd.Series)) and not df_result.empty:
@@ -216,7 +209,7 @@ class TableLoader:
 
     @staticmethod
     def _detect_file_encoding(file_path: Path) -> str:
-        """检测文件编码"""
+        """Detect file encoding"""
         with open(file_path, "rb") as f:
             raw_data = f.read()
             result = chardet.detect(raw_data)
@@ -224,50 +217,53 @@ class TableLoader:
 
     @staticmethod
     def _find_valid_table_range(df: pd.DataFrame) -> Tuple[int, int]:
-        """查找有效表格的起始和结束行索引"""
-        row_counts = df.notna().sum(axis=1)  # 统计每行非空值的数量
+        """Find the start and end row index of a valid table"""
+
+        # Count the number of non-null values per row
+        row_counts = df.notna().sum(axis=1)
         max_count = row_counts.max()
 
-        # 找到数据列数稳定的行范围
-        valid_rows = row_counts[row_counts >= max_count * 0.8]  # 允许20%的容差
+        # Find the row range with stable number of data columns
+        # 20% tolerance allowed
+        valid_rows = row_counts[row_counts >= max_count * 0.8]
         start_idx = valid_rows.index[0]
         end_idx = valid_rows.index[-1]
 
         return start_idx, end_idx
 
     def _process_excel(self, file_path: Path) -> pd.DataFrame:
-        """处理Excel文件"""
-        # 首先读取所有数据，不指定header
+        """Process Excel files"""
+        # First read all data without specifying the header
         return pd.read_excel(file_path, header=None)
 
     def _process_csv(self, file_path: Path) -> pd.DataFrame:
-        """处理CSV文件"""
+        """Processing CSV files"""
         encoding = self._detect_file_encoding(file_path)
 
-        # 首先使用csv.reader读取所有行
+        # First read all rows using csv.reader
         with open(file_path, "r", encoding=encoding) as f:
             csv_reader = csv.reader(f)
             rows = list(csv_reader)
 
-        # 转换为DataFrame进行处理
+        # Convert to DataFrame for processing
         raw_df = pd.DataFrame(rows)
         start_idx, end_idx = self._find_valid_table_range(raw_df)
 
-        # 提取有效数据范围
-        valid_df = raw_df.iloc[start_idx : end_idx + 1].reset_index(drop=True)
+        # Extract valid data range
+        valid_df = raw_df.iloc[start_idx: end_idx + 1].reset_index(drop=True)
         return valid_df
 
     def format_stock_codes(self, keywords: List[str] = None) -> None:
         """
-        扫描DataFrame的列名,对包含关键词且为int类型的列进行格式化:
-        1. 转换为str类型
-        2. 对非空值补零到6位
+        Scan the column name of the DataFrame and format the columns containing keywords and of type int:
+        1. Convert to str type
+        2. Complement zero to 6 digits for non-null values
 
         Args:
-            keywords: List[str], 默认为 ['证券代码', 'code_id', 'symbol']
+            keywords:
 
         Returns:
-            None, 直接修改self.df
+
         """
         if keywords is None:
             keywords = ["证券代码", "code_id", "symbol"]
@@ -294,14 +290,14 @@ class TableLoader:
     @staticmethod
     def _detect_header_row(df: pd.DataFrame) -> Union[int, None]:
         """
-        自动检测表头所在的行。返回行索引（0开始），如果未检测到则返回 None。
+        Automatically detect the row where the table header is located. Returns the row index (starting from 0), and None if not detected.
 
-        改进的检测规则：
-        1. 基础条件：行中非空值数量充足（>50%），且值基本唯一
-        2. 数据类型特征：表头通常是字符串类型
-        3. 长度特征：表头字符串长度通常适中，不会太长也不会太短
-        4. 数值比例：表头行通常不会包含大量数值
-        5. 重复值：表头行的重复值应该较少
+        Improved detection rules:
+        1. Basic conditions: The number of non-null values in the row is sufficient (>50%), and the value is basically unique
+        2. Data type characteristics: The header is usually a string type
+        3. Length characteristics: The length of the header string is usually moderate, not too long or too short
+        4. Numerical ratio: The header row usually does not contain a large number of numerical values
+        5. Repeat value: The table header row should have fewer duplicate values
         """
         max_check_rows = min(15, len(df))
         best_score = -1
@@ -379,10 +375,10 @@ class TableLoader:
         return best_row if best_score >= 1.5 else None
 
     def _extract_schema_and_samples(self) -> None:
-        """提取表格schema信息和样例数据"""
+        """Extract table schema information and sample data"""
 
         def _convert_for_json(obj):
-            """转换对象使其可JSON序列化"""
+            """Convert an object to make it JSON serializable"""
             if isinstance(obj, pd.Timestamp):
                 return obj.isoformat()
             elif isinstance(obj, np.integer):
@@ -444,11 +440,11 @@ class TableQueryEngine:
         self.sample_data = []
 
     def _invoke_dify_llm(
-        self,
-        user_content: str,
-        system_prompt: str = None,
-        temperature: float = 0,
-        max_tokens: int = 4096,
+            self,
+            user_content: str,
+            system_prompt: str = None,
+            temperature: float = 0,
+            max_tokens: int = 4096,
     ) -> str:
         model_config = self.dify_model_config.model_dump().copy()
         model_config["completion_params"] = {"max_tokens": max_tokens, "temperature": temperature}
@@ -471,38 +467,6 @@ class TableQueryEngine:
         self.schema_info = tl.schema_info
         self.sample_data = tl.sample_data
 
-    def pre_classify(self, natural_query: str):
-        schemas = {
-            "columns": self.schema_info["columns"],
-            "dtypes_dict": self.schema_info["dtypes"],
-            "shape": self.schema_info["shape"],
-            "sample_data": json.dumps(self.sample_data[0], indent=2, ensure_ascii=False),
-        }
-        system_prompt = f"""
-        <task>
-        You are a relevance judge, determining whether a user query can be answered using the existing knowledge base. Output "YES" if it is relevant.
-        </task>
-        <COT>
-        Judgment: 1. Is the scenario relevant? 2. Can the question be answered using the following information?
-        For example, <not relevant> case: The table is job information related to recruitment data, but the query is to query stock prices.
-        For example, <relevant> case: The table is an exam grade sheet, and the query is to query the scores of a subject or calculate the average score of a certain region.
-        </COT>
-        <schemas>
-        Below are the headers, sample data, shape, and description information of the knowledge base tables.
-        {schemas}
-        </schemas>
-        <limitations>
-        You can only output "YES" or "NO" and cannot output any other information.
-        </limitations>
-        """
-        runtime_params = {
-            "system_prompt": system_prompt,
-            "user_content": natural_query,
-            "temperature": 0,
-            "max_tokens": 512,
-        }
-        return self._invoke_dify_llm(**runtime_params)
-
     def second_level_classify(self, natural_query: str):
         schemas = {
             "columns": self.schema_info["columns"],
@@ -511,22 +475,22 @@ class TableQueryEngine:
             "sample_data": json.dumps(self.sample_data[0], indent=2, ensure_ascii=False),
         }
         system_prompt = f"""
-        <task>
-        You are a question classifier, determining whether a user query is a <basic data query> task. Output "YES" if it is.
-        </task>
-        <COT>
-        Judgment: 1. Does the query explicitly request a query? 2. Does the query request a listing of data?
-        For example, <not belonging> case: The table is an exam grade sheet, and the query requires calculating the median score of students in a certain region (i.e., data not explicitly given in the grade sheet).
-        For example, <belonging> case: The table is an exam grade sheet, and the query is to query the scores of a subject or the scores of students in a certain region.
-        </COT>
-        <schemas>
-        Below are the headers, sample data, shape, and description information of the knowledge base tables.
-        {schemas}
-        </schemas>
-        <limitations>
-        You can only output "YES" or "NO" and cannot output any other information.
-        </limitations>
-        """
+<task>
+You are a question classifier, determining whether a user query is a <basic data query> task. Output "YES" if it is.
+</task>
+<COT>
+Judgment: 1. Does the query explicitly request a query? 2. Does the query request a listing of data?
+For example, <not belonging> case: The table is an exam grade sheet, and the query requires calculating the median score of students in a certain region (i.e., data not explicitly given in the grade sheet).
+For example, <belonging> case: The table is an exam grade sheet, and the query is to query the scores of a subject or the scores of students in a certain region.
+</COT>
+<schemas>
+Below are the headers, sample data, shape, and description information of the knowledge base tables.
+{schemas}
+</schemas>
+<limitations>
+You can only output "YES" or "NO" and cannot output any other information.
+</limitations>
+        """.strip()
         runtime_params = {
             "system_prompt": system_prompt,
             "user_content": natural_query,
@@ -535,59 +499,16 @@ class TableQueryEngine:
         }
         return self._invoke_dify_llm(**runtime_params)
 
-    def get_query_classification(self, natural_query: str) -> str:
-        system_prompt = get_prompt_template("classify")
-        user_content = natural_query
-
-        runtime_params = {
-            "system_prompt": system_prompt,
-            "user_content": user_content,
-            "temperature": 0,
-            "max_tokens": 512,
-        }
-
-        return self._invoke_dify_llm(**runtime_params)
-
-    def gen_related_question(self, question_type: str = "") -> str:
-        limitations = ""
-        if question_type:
-            limitations = f"<question_type>生成的查询类型：{question_type}</question_type>"
-
-        user_content = f"""
-        <task>根据表格描述生成自然语言问题</task>
-        
-        {limitations}
-        
-        <schemas>
-        - columns: {self.schema_info["columns"]}
-        - dtypes_dict: {self.schema_info["dtypes"]}
-        - shape: {self.schema_info["shape"]}
-        </schemas>
-        
-        <samples>
-        {json.dumps(self.sample_data, indent=2, ensure_ascii=False)}
-        </samples>
-        """
-
-        runtime_params = {
-            "system_prompt": get_prompt_template("fdq"),
-            "user_content": user_content,
-            "temperature": 0.7,
-            "max_tokens": 4096,
-        }
-
-        return self._invoke_dify_llm(**runtime_params)
-
     def _generate_query_code(
-        self, natural_query: str, agent: Literal["table_filter", "table_interpreter"]
+            self, natural_query: str, agent: Literal["table_filter", "table_interpreter"]
     ) -> str:
-        """使用LLM生成查询代码
+        """Generate query code using LLM
 
         Args:
-            natural_query: 自然语言查询描述
+            natural_query:
 
         Returns:
-            str: 生成的Python代码
+            str:
         """
         system_prompt = get_prompt_template(agent).format(
             columns_list=self.schema_info["columns"],
@@ -597,7 +518,6 @@ class TableQueryEngine:
         )
         user_content = f"<query>{natural_query}<query>"
 
-        # == 提取代码块 == #
         runtime_params = {
             "system_prompt": system_prompt,
             "user_content": user_content,
@@ -612,19 +532,18 @@ class TableQueryEngine:
         return code
 
     def _generate_filename(self, natural_query: str, code: str) -> str:
-        """生成文件名"""
         system_prompt = get_prompt_template("naming_master")
 
         user_content = f"""
-        <natural_query>
-        {natural_query}
-        </natural_query>
-        <code>
-        ```python
-        {code}
-        ```
-        </code>
-        """
+<natural_query>
+{natural_query}
+</natural_query>
+<code>
+```python
+{code}
+```
+</code>
+        """.strip()
         runtime_params = {
             "system_prompt": system_prompt,
             "user_content": user_content,
@@ -635,19 +554,19 @@ class TableQueryEngine:
         return self._invoke_dify_llm(**runtime_params)
 
     def _safe_execute_code(self, code: str) -> Any:
-        """安全地执行动态生成的代码
+        """
+        Safely execute dynamically generated code
 
         Args:
-            code: 要执行的Python代码
+            code: Python code to execute
 
         Returns:
-            查询结果
         """
         try:
             # Parse the code to ensure the syntax is correct
             ast.parse(code)
 
-            # 创建一个隔离的命名空间
+            # Create an isolated namespace
             namespace = {
                 # Basic library
                 "pd": pd,
@@ -682,7 +601,7 @@ class TableQueryEngine:
             return str(traceback.format_exc())
 
     def query(
-        self, natural_query: str, enable_classifier: bool = True, retry_times: int = 3
+            self, natural_query: str, enable_classifier: bool = True, retry_times: int = 3
     ) -> QueryResult:
         if self.df is None:
             return QueryOutputParser.parse(None, natural_query, error="Tabular data not loaded")
@@ -721,21 +640,6 @@ class TableQueryEngine:
                     break
 
                 # TODO: debugger strategy
-                # schemas = {
-                #     "columns": self.schema_info["columns"],
-                #     "dtypes_dict": self.schema_info["dtypes"],
-                #     "shape": self.schema_info["shape"],
-                #     "sample_data": json.dumps(self.sample_data[0], indent=2, ensure_ascii=False),
-                # }
-                # question = f"<query>{natural_query}<query>\n<schemas>\n{schemas}\n</schemas>"
-                # query_code = invoke_claude_debugger(question, query_code, df_result)
-                # # 检查是否是 markdown 代码块
-                # if query_code.strip().startswith("```python"):
-                #     # 使用正则提取代码块内容
-                #     pattern = r"```python\s*(.*?)\s*```"
-                #     match = re.search(pattern, query_code, re.DOTALL)
-                #     if match:
-                #         query_code = match.group(1).strip()
 
             # ========================================
             # Generate recommended file names
@@ -756,20 +660,3 @@ class TableQueryEngine:
 
         except Exception as err:
             return QueryOutputParser.parse(pd.DataFrame(), natural_query, error=str(err))
-
-    def answer(self, natural_query: str, __context__: str) -> str:
-        """LLM 根据表格操作结果回复自然语言查询"""
-        soup = BeautifulSoup(__context__, "lxml")
-        if "基础数据查询" in soup.find("question_type").string:
-            return soup.find("output").string.strip()
-
-        system_prompt = get_prompt_template("answer").format(context=__context__)
-
-        runtime_params = {
-            "system_prompt": system_prompt,
-            "user_content": natural_query,
-            "temperature": 0,
-            "max_tokens": 4096,
-        }
-
-        return self._invoke_dify_llm(**runtime_params)

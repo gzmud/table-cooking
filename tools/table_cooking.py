@@ -1,4 +1,3 @@
-import json
 from collections.abc import Generator
 from typing import Any
 
@@ -25,7 +24,6 @@ class TableCookingTool(Tool):
         try:
             cooking_result = table_self_query(artifact, self.session)
             cooking_result_json = cooking_result.model_dump(mode="json")
-            print(cooking_result.llm_ready)
             yield self.create_json_message(cooking_result_json)
         finally:
             artifact.release_cache()
