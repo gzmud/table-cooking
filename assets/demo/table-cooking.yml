@@ -1,15 +1,15 @@
 app:
   description: ''
-  icon: person_with_headscarf
+  icon: zany_face
   icon_background: '#FFEAD5'
   mode: advanced-chat
-  name: cf1
-  use_icon_as_answer_icon: false
+  name: table-cooking
+  use_icon_as_answer_icon: true
 dependencies:
 - current_identifier: null
   type: package
   value:
-    plugin_unique_identifier: qin2dim/table_cooking:0.0.1@28abbef6f72dbf5d1b42acd1590fbf6c84161b1060e8bba5207e07920d8f23fb
+    plugin_unique_identifier: qin2dim/table_cooking:0.0.2@206705d0fb8c2f0e44d71ecad1153a57fb5ea136a37374bc27dd91f3a7c867a4
 - current_identifier: null
   type: marketplace
   value:
@@ -59,18 +59,6 @@ workflow:
   graph:
     edges:
     - data:
-        isInIteration: false
-        isInLoop: false
-        sourceType: start
-        targetType: tool
-      id: 1742214363114-source-1742538158268-target
-      source: '1742214363114'
-      sourceHandle: source
-      target: '1742538158268'
-      targetHandle: target
-      type: custom
-      zIndex: 0
-    - data:
         isInLoop: false
         sourceType: tool
         targetType: code
@@ -105,33 +93,68 @@ workflow:
       targetHandle: target
       type: custom
       zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: list-operator
+        targetType: tool
+      id: 1742539415603-source-1742538158268-target
+      source: '1742539415603'
+      sourceHandle: source
+      target: '1742538158268'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: if-else
+      id: 1742214363114-source-1742541583405-target
+      source: '1742214363114'
+      sourceHandle: source
+      target: '1742541583405'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: list-operator
+      id: 1742541583405-true-1742539415603-target
+      source: '1742541583405'
+      sourceHandle: 'true'
+      target: '1742539415603'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: answer
+      id: 1742541583405-false-1742542727469-target
+      source: '1742541583405'
+      sourceHandle: 'false'
+      target: '1742542727469'
+      targetHandle: target
+      type: custom
+      zIndex: 0
     nodes:
     - data:
         desc: ''
         selected: false
         title: 开始
         type: start
-        variables:
-        - allowed_file_extensions: []
-          allowed_file_types:
-          - document
-          allowed_file_upload_methods:
-          - local_file
-          - remote_url
-          label: table
-          max_length: 48
-          options: []
-          required: true
-          type: file
-          variable: table
-      height: 90
+        variables: []
+      height: 54
       id: '1742214363114'
       position:
         x: 30
-        y: 271.5
+        y: 262
       positionAbsolute:
         x: 30
-        y: 271.5
+        y: 262
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -153,11 +176,11 @@ workflow:
       height: 124
       id: '1742441805046'
       position:
-        x: 1242
-        y: 271.5
+        x: 1850
+        y: 262
       positionAbsolute:
-        x: 1242
-        y: 271.5
+        x: 1850
+        y: 262
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -186,11 +209,11 @@ workflow:
       height: 54
       id: '1742528532152'
       position:
-        x: 638
-        y: 271.5
+        x: 1242
+        y: 262
       positionAbsolute:
-        x: 638
-        y: 271.5
+        x: 1242
+        y: 262
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -299,18 +322,18 @@ workflow:
           table:
             type: variable
             value:
-            - '1742214363114'
-            - table
+            - '1742539415603'
+            - last_record
         type: tool
       height: 90
       id: '1742538158268'
       position:
-        x: 334
-        y: 271.5
+        x: 938
+        y: 262
       positionAbsolute:
-        x: 334
-        y: 271.5
-      selected: false
+        x: 938
+        y: 262
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
@@ -360,17 +383,125 @@ workflow:
       height: 90
       id: '1742538230449'
       position:
-        x: 942
-        y: 271.5
+        x: 1546
+        y: 262
       positionAbsolute:
-        x: 942
-        y: 271.5
-      selected: true
+        x: 1546
+        y: 262
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        extract_by:
+          enabled: false
+          serial: '1'
+        filter_by:
+          conditions:
+          - comparison_operator: in
+            key: type
+            value:
+            - document
+          enabled: true
+        item_var_type: file
+        limit:
+          enabled: false
+          size: 10
+        order_by:
+          enabled: false
+          key: ''
+          value: asc
+        selected: false
+        title: 列表操作
+        type: list-operator
+        var_type: array[file]
+        variable:
+        - sys
+        - files
+      height: 92
+      id: '1742539415603'
+      position:
+        x: 634
+        y: 262
+      positionAbsolute:
+        x: 634
+        y: 262
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        cases:
+        - case_id: 'true'
+          conditions:
+          - comparison_operator: contains
+            id: 288fe71d-8643-4787-9c07-96917b0b9545
+            sub_variable_condition:
+              case_id: e48b2ea5-3545-4b2e-abfc-6bd01ddbe014
+              conditions:
+              - comparison_operator: is
+                id: 1fd087ad-4250-44f3-8c6f-89d4b729ed36
+                key: extension
+                value: .csv
+                varType: string
+              - comparison_operator: is
+                id: 359656e4-0708-4c50-a054-267b5561b7a2
+                key: extension
+                value: .xlsx
+                varType: string
+              - comparison_operator: is
+                id: a2cfa6ed-673f-4b41-8271-ea5f5e271cd3
+                key: extension
+                value: .xls
+                varType: string
+              logical_operator: or
+            value: ''
+            varType: array[file]
+            variable_selector:
+            - sys
+            - files
+          id: 'true'
+          logical_operator: and
+        desc: ''
+        selected: false
+        title: 条件分支
+        type: if-else
+      height: 198
+      id: '1742541583405'
+      position:
+        x: 334
+        y: 262
+      positionAbsolute:
+        x: 334
+        y: 262
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        answer: Oooooops!!!!
+        desc: ''
+        selected: false
+        title: 直接回复 2
+        type: answer
+        variables: []
+      height: 102
+      id: '1742542727469'
+      position:
+        x: 634
+        y: 393
+      positionAbsolute:
+        x: 634
+        y: 393
       sourcePosition: right
       targetPosition: left
       type: custom
       width: 244
     viewport:
-      x: -138.77718935116923
-      y: 102.83636902594213
-      zoom: 0.8040888484979246
+      x: 21.46767481558834
+      y: 134.54674677926266
+      zoom: 0.7000000000000012

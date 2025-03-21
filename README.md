@@ -11,9 +11,9 @@ https://github.com/user-attachments/assets/dd18ac4b-9beb-4313-b88a-02493ce58324
 
 ### Workflow
 
-[dsl_demo.yml](assets/demo/dsl_demo.yml)
+[dsl_demo.yml](assets/demo/table-cooking.yml)
 
-![image-20250321142911457](assets/demo/image-20250321142911457.png)
+![image-20250321154044819](assets/image-20250321154044819.png)
 
 
 ### Package
