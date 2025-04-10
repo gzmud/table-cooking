@@ -6,7 +6,7 @@ from dify_plugin.entities.tool import ToolInvokeMessage
 from loguru import logger
 
 
-class TableCookingS3Tool(Tool):
+class GetFileLinkTool(Tool):
     """
     Invoke model:
     https://docs.dify.ai/zh-hans/plugins/schema-definition/reverse-invocation-of-the-dify-service/model#zui-jia-shi-jian
