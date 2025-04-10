@@ -1,0 +1,442 @@
+app:
+  description: ''
+  icon: male-cook
+  icon_background: '#FFEAD5'
+  mode: advanced-chat
+  name: table-cooking-flow
+  use_icon_as_answer_icon: true
+dependencies:
+- current_identifier: null
+  type: github
+  value:
+    github_plugin_unique_identifier: qin2dim/table_cooking:0.1.1@238a2625fbb993e7a89d712fce3c38475d048fedcdb2cea2f02e0585601ada56
+    package: table-cooking-0.1.1.difypkg
+    repo: QIN2DIM/table-cooking
+    version: 0.1.1
+kind: app
+version: 0.1.5
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions: []
+      allowed_file_types:
+      - document
+      allowed_file_upload_methods:
+      - remote_url
+      - local_file
+      enabled: true
+      fileUploadConfig:
+        audio_file_size_limit: 5000
+        batch_count_limit: 51
+        file_size_limit: 1000
+        image_file_size_limit: 80
+        video_file_size_limit: 10000
+        workflow_file_upload_limit: 1000
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInLoop: false
+        sourceType: agent
+        targetType: answer
+      id: 1744276114009-source-1744275374909-target
+      selected: false
+      source: '1744276114009'
+      sourceHandle: source
+      target: '1744275374909'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: if-else
+      id: 1744250969853-source-1744276785878-target
+      selected: false
+      source: '1744250969853'
+      sourceHandle: source
+      target: '1744276785878'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: agent
+      id: 1744276785878-false-1744276114009-target
+      selected: false
+      source: '1744276785878'
+      sourceHandle: 'false'
+      target: '1744276114009'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: tool
+      id: 1744276785878-true-1744277400465-target
+      selected: false
+      source: '1744276785878'
+      sourceHandle: 'true'
+      target: '1744277400465'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: tool
+        targetType: agent
+      id: 1744277400465-source-1744276114009-target
+      selected: false
+      source: '1744277400465'
+      sourceHandle: source
+      target: '1744276114009'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: ''
+        selected: false
+        title: 开始
+        type: start
+        variables: []
+      height: 54
+      id: '1744250969853'
+      position:
+        x: 30
+        y: 299
+      positionAbsolute:
+        x: 30
+        y: 299
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        answer: '{{#1744276114009.text#}}'
+        desc: ''
+        selected: false
+        title: 直接回复
+        type: answer
+        variables: []
+      height: 105
+      id: '1744275374909'
+      position:
+        x: 1246
+        y: 299
+      positionAbsolute:
+        x: 1246
+        y: 299
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        agent_parameters:
+          instruction:
+            type: constant
+            value: 你是一个嘴硬的人类伙伴，2077 夜之城的赛博人生导师
+          model:
+            type: constant
+            value:
+              completion_params: {}
+              mode: chat
+              model: gpt-4o-2024-11-20
+              model_type: llm
+              provider: langgenius/openai/openai
+              type: model-selector
+          query:
+            type: constant
+            value: '{{#sys.query#}}'
+          tools:
+            type: constant
+            value:
+            - enabled: true
+              extra:
+                description: ''
+              parameters:
+                file_url:
+                  auto: 0
+                  value:
+                    type: mixed
+                    value: '{{#1744277400465.text#}}'
+                query:
+                  auto: 1
+                  value: null
+              provider_name: qin2dim/table_cooking/table_cooking
+              schemas:
+              - auto_generate: null
+                default: null
+                form: llm
+                human_description:
+                  en_US: The information you want to get from the table data
+                  ja_JP: 表データから取得したい情報
+                  pt_BR: A informação que você deseja obter dos dados da tabela
+                  zh_Hans: 想从表格数据中获取的信息
+                label:
+                  en_US: Natural language query
+                  ja_JP: 自然言語クエリ
+                  pt_BR: Consulta em linguagem natural
+                  zh_Hans: 查询语句
+                llm_description: The information you want to retrieve from the table
+                  data. The query should be a formal query that is logically clear,
+                  informationally complete, and with a clear intention.
+                max: null
+                min: null
+                name: query
+                options: []
+                placeholder: null
+                precision: null
+                required: true
+                scope: null
+                template: null
+                type: string
+              - auto_generate: null
+                default: null
+                form: llm
+                human_description:
+                  en_US: Provide a link to the table file, starting with http:// or
+                    https://
+                  ja_JP: テーブルファイルへのリンクを提供してください。http:// または https:// で始まる必要があります。
+                  pt_BR: Forneça um link para o arquivo de tabela, começando com http://
+                    ou https://
+                  zh_Hans: 提供表格文件的链接，需以 http:// 或 https:// 开头
+                label:
+                  en_US: Link to a table file.
+                  ja_JP: テーブルファイルへのリンク
+                  pt_BR: Link para um arquivo de tabela.
+                  zh_Hans: 表格文件链接
+                llm_description: Provide a link to the table file, starting with http://
+                  or https://
+                max: null
+                min: null
+                name: file_url
+                options: []
+                placeholder: null
+                precision: null
+                required: true
+                scope: null
+                template: null
+                type: string
+              - auto_generate: null
+                default: null
+                form: form
+                human_description:
+                  en_US: Model
+                  ja_JP: 使用するモデル
+                  pt_BR: Modelo a ser usado
+                  zh_Hans: 使用的模型
+                label:
+                  en_US: Model
+                  ja_JP: モデル
+                  pt_BR: Modelo
+                  zh_Hans: 使用的模型
+                llm_description: which Model to invoke
+                max: null
+                min: null
+                name: chef
+                options: []
+                placeholder: null
+                precision: null
+                required: true
+                scope: llm
+                template: null
+                type: model-selector
+              settings:
+                chef:
+                  value:
+                    completion_params: {}
+                    mode: chat
+                    model: gpt-4o-2024-11-20
+                    model_type: llm
+                    provider: langgenius/openai/openai
+                    type: model-selector
+              tool_label: 表格数据分析 [S3]
+              tool_name: table_cooking_s3
+              type: builtin
+        agent_strategy_label: FunctionCalling
+        agent_strategy_name: function_calling
+        agent_strategy_provider_name: langgenius/agent/agent
+        desc: ''
+        output_schema: null
+        plugin_unique_identifier: langgenius/agent:0.0.9@f16916b704a20067317dbe9030f62aa28f0832021a3ef6d4ce699504074c5e13
+        selected: false
+        title: Agent
+        type: agent
+      height: 198
+      id: '1744276114009'
+      position:
+        x: 942
+        y: 299
+      positionAbsolute:
+        x: 942
+        y: 299
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        cases:
+        - case_id: 'true'
+          conditions:
+          - comparison_operator: contains
+            id: 30e10b99-b32b-4be7-a442-3af2ddc0fbaf
+            sub_variable_condition:
+              case_id: b1060ec0-c12f-485f-9daa-41794c6e91bd
+              conditions:
+              - comparison_operator: is
+                id: 9a5e02c2-6d86-4af8-a067-29e98ccd71d4
+                key: extension
+                value: .csv
+                varType: string
+              - comparison_operator: is
+                id: 0a63aac3-340f-4e9f-9c0c-4f1a2214a426
+                key: extension
+                value: .xlsx
+                varType: string
+              - comparison_operator: is
+                id: fee37bae-3fa7-4046-b3d9-530844665759
+                key: extension
+                value: .xls
+                varType: string
+              logical_operator: or
+            value: ''
+            varType: array[file]
+            variable_selector:
+            - sys
+            - files
+          id: 'true'
+          logical_operator: and
+        desc: ''
+        selected: false
+        title: 条件分支
+        type: if-else
+      height: 198
+      id: '1744276785878'
+      position:
+        x: 334
+        y: 299
+      positionAbsolute:
+        x: 334
+        y: 299
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        is_team_authorization: true
+        output_schema: null
+        paramSchemas:
+        - auto_generate: null
+          default: null
+          form: llm
+          human_description:
+            en_US: Provide the table file (.csv/.xlsx/.xls) for data analysis.
+            ja_JP: データ分析用のテーブルファイル（.csv/.xlsx/.xls）を提供してください。
+            pt_BR: Forneça o arquivo de tabela (.csv/.xlsx/.xls) para análise de dados.
+            zh_Hans: 提供需要做数据分析的表格文件（.csv/.xlsx/.xls）
+          label:
+            en_US: Table file
+            ja_JP: 表ファイル
+            pt_BR: Arquivo de tabela
+            zh_Hans: 表格文件
+          llm_description: Provide the table file (.csv/.xlsx/.xls) for data analysis.
+          max: null
+          min: null
+          name: tables
+          options: []
+          placeholder: null
+          precision: null
+          required: true
+          scope: null
+          template: null
+          type: files
+        params:
+          tables: ''
+        provider_id: qin2dim/table_cooking/table_cooking
+        provider_name: qin2dim/table_cooking/table_cooking
+        provider_type: builtin
+        selected: false
+        title: 获取文件临时链接
+        tool_configurations: {}
+        tool_label: 获取文件临时链接
+        tool_name: get_file_link
+        tool_parameters:
+          tables:
+            type: variable
+            value:
+            - sys
+            - files
+        type: tool
+      height: 54
+      id: '1744277400465'
+      position:
+        x: 638
+        y: 356
+      positionAbsolute:
+        x: 638
+        y: 356
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        author: kk
+        desc: ''
+        height: 88
+        selected: false
+        showAuthor: true
+        text: '{"root":{"children":[{"children":[{"detail":0,"format":0,"mode":"normal","style":"","text":"demo
+          演示，仅传入 1 份表格文件","type":"text","version":1}],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1,"textFormat":0,"textStyle":""}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}'
+        theme: blue
+        title: ''
+        type: ''
+        width: 240
+      height: 88
+      id: '1744277453210'
+      position:
+        x: 631.3536042946095
+        y: 171.5815511960572
+      positionAbsolute:
+        x: 631.3536042946095
+        y: 171.5815511960572
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom-note
+      width: 240
+    viewport:
+      x: 106.43922464387651
+      y: 57.83507855432936
+      zoom: 0.923655537541026
