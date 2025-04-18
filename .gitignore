@@ -175,3 +175,6 @@ tmp/
 dify-plugin-windows-amd64.exe
 dify-plugin-darwin-amd64
 dify-plugin-linux-amd64
+
+# conda
+.conda/
