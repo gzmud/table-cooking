@@ -182,3 +182,6 @@ tmp/
 dify-plugin-windows-amd64.exe
 _assets/*.yml
 _assets/image-20250321154044819.png
+
+# conda
+.conda/
