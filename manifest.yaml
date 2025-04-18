@@ -1,4 +1,4 @@
-version: 0.1.1
+version: 0.1.2
 type: plugin
 author: qin2dim
 name: table_cooking
@@ -36,6 +36,7 @@ plugins:
     - provider/table_cooking.yaml
 meta:
   version: 0.0.3
+  minimum_dify_version: "1.0.0"
   arch:
     - amd64
     - arm64
