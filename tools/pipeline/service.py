@@ -155,7 +155,7 @@ class ArtifactPayload(BaseModel):
         if not hasattr(table, "url") or not table.url:
             raise ToolProviderCredentialValidationError("表格URL不能为空")
 
-        ArtifactPayload._validate_url(table.url)
+        #ArtifactPayload._validate_url(table.url)
         ArtifactPayload._validate_file_extension(table.extension)
         ArtifactPayload._validate_file_size(table.size)
 
